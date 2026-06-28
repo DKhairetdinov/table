@@ -94,8 +94,23 @@
     const [rowCount, setRowCount] = useState(100);
     const [colWidths, setColWidths] = useState<Record<number, number>>({});
     const [rowHeights, setRowHeights] = useState<Record<number, number>>({});
+    const [scrollTop, setScrollTop] = useState(0);
     const DEFAULT_WIDTHS = 100;
-    const DEFAULT_HEIGHT = 25;
+    const DEFAULT_HEIGHT = 28;
+    const VIEWPORT_HEIGHT = 845;
+    const OVERSCAN = 5;
+
+    const getTotalHeight = () => {
+      let total = 0;
+      for (let i = 0; i < rowCount; i++) {
+        total += rowHeights[i] || DEFAULT_HEIGHT;
+      }
+      return total;
+    };
+
+    const startIndex = Math.max(0, Math.floor(scrollTop / DEFAULT_HEIGHT) - OVERSCAN);
+    const endIndex = Math.min(rowCount - 1, Math.floor((scrollTop + 800) / DEFAULT_HEIGHT) + OVERSCAN);
+    const offsetY = startIndex * DEFAULT_HEIGHT;
 
     const handleResizeMouseDown = useCallback((index: number, e: React.MouseEvent) => {
       e.preventDefault();
@@ -128,7 +143,7 @@
 
       const onMouseUp = () => {
         document.removeEventListener('mousemove', onMouseMove);
-        document.removeEventListener('mousedown', onMouseUp);
+        document.removeEventListener('mouseup', onMouseUp);
       } 
 
       document.addEventListener('mousemove', onMouseMove);
@@ -233,8 +248,14 @@
           />
         </div>
 
-        <table style={{borderCollapse: 'collapse', width: '100%'}}>
-          <thead>
+        <div
+          onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
+          style={{ height: `${VIEWPORT_HEIGHT}px`, overflow: 'auto', position: 'relative', border: '1px solid #ccc' }}
+        >
+        <div style={{ height: `${getTotalHeight()}px`, position: 'absolute', width: '100%', top: 0, left: 0 }}/>
+
+        <table style={{borderCollapse: 'collapse', tableLayout: 'fixed', position: 'relative', transform: `translateY(${offsetY}px)`, zIndex: 2, backgroundColor: 'white' }}>
+          <thead style={{ position: 'sticky', top: 0, zIndex: 11, background: '#f5f5f5', transform: `translateY(${-offsetY}px)` }}>
             <tr>
               <th style={{minWidth: '50px', border: '1px solid #ccc', height: '25px', background: '#f5f5f5'}}></th>
               {Array.from({ length: colCount }).map((_, index) => {
@@ -258,9 +279,12 @@
             </tr>
           </thead>
           <tbody>
-            {Array.from({ length: rowCount }).map((_, rowIndex) => (
-              <tr key={rowIndex}>
-                <th style={{ border: '1px solid #ccc', background: '#f5f5f5', height: `${rowHeights[rowIndex] || DEFAULT_HEIGHT}px`, position: 'relative', padding: 0 }}
+            {Array.from({ length: rowCount }).slice(startIndex, endIndex + 1).map((_, i) => {
+              const rowIndex = startIndex + i;
+              const height = rowHeights[rowIndex] || DEFAULT_HEIGHT;
+              return (
+                <tr key={rowIndex} style={{ height: `${height}px`}}>
+                <th style={{ border: '1px solid #ccc', background: '#f5f5f5', height: `${height}px`, position: 'relative', padding: 0, width: '50px' }}
                   onContextMenu={(e) => {
                     e.preventDefault();
                     setMenu({ x: e.clientX, y: e.clientY, visible: true, targetIndex: rowIndex, type: 'row' });
@@ -294,10 +318,12 @@
                     />
                   );
                 })}
-              </tr>
-            ))}
+                </tr>
+                );
+              })}
           </tbody>
         </table>
+        </div>
         
         {menu.visible && (
           <ul style={{ position: 'fixed', top: menu.y, left: menu.x, backgroundColor: 'white', border: '1px solid #ccc', padding: '5px 0', listStyle: 'none', zIndex: 1000, minWidth: '150px', boxShadow: '0 2px 5px rgba(0,0,0,0.2)' }}>
@@ -311,4 +337,4 @@
         )}
       </>
     )
-  }
+}
